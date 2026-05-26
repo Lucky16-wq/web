@@ -67,7 +67,13 @@ Tabel utama:
 ## Langkah selanjutnya
 
 - Lengkapi model database dan migrasi
-- Integrasikan gateway pembayaran seperti Xendit / Midtrans
+- Integrasikan gateway pembayaran seperti Xendit / Midtrans melalui endpoint pembayaran terproksi
 - Lengkapi modul chat realtime dengan Socket.IO
-- Implementasikan generator PDF dan dokumen verifikasi
+- Implementasikan generator PDF dan dokumen verifikasi untuk kontrak dan invoice
 - Bangun dashboard admin dan UI pemesanan customer
+
+## Konfigurasi tambahan
+
+- `XENDIT_API_KEY` untuk gateway Xendit
+- `MIDTRANS_SERVER_KEY` untuk gateway Midtrans sandbox
+- `PAYMENT_SUCCESS_URL` dan `PAYMENT_FAILURE_URL` untuk redirect checkout pembayaran

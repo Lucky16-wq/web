@@ -34,6 +34,7 @@ import { RolesGuard } from './modules/auth/roles.guard';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       synchronize: false,
+      migrationsRun: true,
       logging: false,
       entities: [
         Role,

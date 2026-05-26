@@ -23,6 +23,7 @@ export default function VenueDetailPage() {
   const [endAt, setEndAt] = useState('');
   const [purpose, setPurpose] = useState('');
   const [bookingMessage, setBookingMessage] = useState('');
+  const [checkoutUrl, setCheckoutUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -56,10 +57,13 @@ export default function VenueDetailPage() {
 
   const handleBooking = async () => {
     setBookingMessage('');
+    setCheckoutUrl('');
+
     if (!venue || !startAt || !endAt || !purpose) {
       setBookingMessage('Lengkapi semua field booking terlebih dahulu.');
       return;
     }
+
     const token = localStorage.getItem('venue_rental_token');
     if (!token) {
       setBookingMessage('Silakan login terlebih dahulu untuk melakukan booking.');
@@ -68,7 +72,7 @@ export default function VenueDetailPage() {
 
     setSubmitting(true);
     try {
-      const response = await fetch('/api/bookings', {
+      const bookingResponse = await fetch('/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,12 +86,38 @@ export default function VenueDetailPage() {
           purpose,
         }),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        setBookingMessage(data.message || 'Terjadi kesalahan saat membuat booking.');
+
+      const bookingData = await bookingResponse.json();
+      if (!bookingResponse.ok) {
+        setBookingMessage(bookingData.message || 'Terjadi kesalahan saat membuat booking.');
         return;
       }
-      setBookingMessage('Booking berhasil dibuat. Silakan cek dashboard Anda.');
+
+      const paymentResponse = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          bookingId: bookingData.id,
+          amount: totalPrice,
+          provider: 'xendit',
+        }),
+      });
+
+      const paymentData = await paymentResponse.json();
+      if (!paymentResponse.ok) {
+        setBookingMessage(paymentData.message || 'Booking berhasil dibuat, tetapi checkout gagal.');
+        return;
+      }
+
+      if (paymentData.checkoutUrl) {
+        setCheckoutUrl(paymentData.checkoutUrl);
+        setBookingMessage('Booking berhasil dibuat. Lanjutkan pembayaran melalui link berikut.');
+      } else {
+        setBookingMessage('Booking berhasil dibuat. Silakan cek dashboard untuk detail pembayaran.');
+      }
     } catch (err) {
       setBookingMessage('Terjadi kesalahan jaringan saat membuat booking.');
     } finally {
@@ -137,6 +167,11 @@ export default function VenueDetailPage() {
                   Estimasi total: <span className="font-semibold text-slate-900 dark:text-white">Rp {totalPrice}</span>
                 </div>
                 {bookingMessage ? <p className="text-sm text-red-600 dark:text-red-400">{bookingMessage}</p> : null}
+                {checkoutUrl ? (
+                  <a href={checkoutUrl} target="_blank" rel="noreferrer" className="block rounded-2xl bg-emerald-600 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-emerald-500">
+                    Lanjutkan Pembayaran
+                  </a>
+                ) : null}
                 <button type="button" onClick={handleBooking} disabled={submitting} className="w-full rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-slate-300">
                   {submitting ? 'Mengirim...' : 'Buat Booking'}
                 </button>
