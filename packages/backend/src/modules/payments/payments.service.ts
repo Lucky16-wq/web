@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -108,7 +108,7 @@ export class PaymentsService {
     if (provider === 'xendit') {
       const invoice = await this.createXenditInvoice(booking, amount);
       providerReference = invoice.id;
-      checkoutUrl = invoice.invoice_url || invoice.invoice_url;
+      checkoutUrl = invoice.invoice_url;
       metadata = { ...metadata, xendit: invoice };
     } else if (provider === 'midtrans') {
       const transaction = await this.createMidtransTransaction(booking, amount);
@@ -131,7 +131,13 @@ export class PaymentsService {
     return { payment: saved, checkoutUrl };
   }
 
-  async verifyWebhook(body: any) {
+  async verifyWebhook(body: any, headers?: any) {
+    // Contoh implementasi keamanan dasar untuk Xendit
+    const xenditToken = this.configService.get<string>('XENDIT_CALLBACK_TOKEN');
+    if (xenditToken && headers && headers['x-callback-token'] !== xenditToken) {
+      throw new UnauthorizedException('Invalid callback token');
+    }
+
     let provider = body.type || body.payment_type || 'unknown';
     let reference = body.data?.id || body.order_id || body.transaction_id || body.payment_id || null;
     if (!reference) {

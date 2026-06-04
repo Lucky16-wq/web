@@ -7,8 +7,12 @@ import { AppModule } from './app.module';
 import * as csurf from 'csurf';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule);
 
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
   app.setGlobalPrefix('api');
   app.use(helmet());
   app.use(cookieParser());
@@ -20,11 +24,23 @@ async function bootstrap() {
       legacyHeaders: false,
     }),
   );
-  app.use(csurf({ cookie: { httpOnly: true, sameSite: 'strict' } }));
+  
+  // Selalu aktifkan CSRF protection dengan pengecualian API jika menggunakan JWT murni.
+  // Namun jika menggunakan Cookie, wajib diaktifkan di semua environment.
+  const csurfFunction = (csurf as any).default || csurf;
+  app.use(csurfFunction({ 
+    cookie: { 
+      httpOnly: true, 
+      sameSite: 'lax', 
+      secure: process.env.NODE_ENV === 'production' 
+    } 
+  }));
+  
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  await app.listen(4000);
-  console.log('Backend running on http://localhost:4000');
+  const port = process.env.PORT || 4000;
+  await app.listen(port);
+  console.log(`Backend running on http://localhost:${port}`);
 }
 
 bootstrap();

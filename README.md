@@ -1,3 +1,6 @@
+git add .
+git commit -m "update project"
+git push
 # Venue Rental & Booking Platform
 
 Monorepo full-stack platform untuk booking tempat, negosiasi harga, pembuatan dokumen otomatis, pembayaran online, dan manajemen transaksi.

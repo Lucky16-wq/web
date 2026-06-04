@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import FloatingChat from './FloatingChat';
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
@@ -13,11 +14,13 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Link href="/">Home</Link>
             <Link href="/venues">Venues</Link>
             <Link href="/dashboard">Dashboard</Link>
+            <Link href="/chat">Chat</Link>
             <Link href="/admin">Admin</Link>
           </nav>
         </div>
       </header>
       <main>{children}</main>
+      <FloatingChat />
       <footer className="border-t border-slate-200 bg-white/90 px-6 py-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/90">
         <div className="mx-auto max-w-6xl">© 2026 Venue Rental Platform. All rights reserved.</div>
       </footer>

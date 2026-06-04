@@ -1,28 +1,36 @@
-'use client';
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 
 type Profile = { email: string; fullName: string; role?: string };
-type BookingSummary = { total: number; pending: number; confirmed: number; completed: number };
+type Booking = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  totalPrice: number;
+  status: { code: string; label: string };
+  user: { fullName: string; email: string };
+  venue: { name: string };
+};
+type BookingSummary = { total: number; pending: number; confirmed: number; completed: number; totalRevenue: number };
 
 export default function AdminPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('venue_rental_token');
     if (!token) {
-      setError('Silakan login untuk mengakses admin page.');
+      setError('Akses ditolak. Silakan login sebagai admin.');
       setLoading(false);
       return;
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
     Promise.all([
-      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }).then((res) => res.json()),
-      fetch('/api/bookings', { headers: { Authorization: `Bearer ${token}` } }).then((res) => res.json()),
+      fetch(`${baseUrl}/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).then((res) => res.json()),
+      fetch(`${baseUrl}/bookings`, { headers: { Authorization: `Bearer ${token}` } }).then((res) => res.json()),
     ])
       .then(([profileData, bookingsData]) => {
         setProfile(profileData);
@@ -32,12 +40,13 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const summary: BookingSummary = {
+  const summary = useMemo<BookingSummary>(() => ({
     total: bookings.length,
     pending: bookings.filter((item) => item.status?.code === 'pending').length,
     confirmed: bookings.filter((item) => item.status?.code === 'confirmed').length,
     completed: bookings.filter((item) => item.status?.code === 'completed').length,
-  };
+    totalRevenue: bookings.reduce((acc, curr) => acc + (Number(curr.totalPrice) || 0), 0),
+  }), [bookings]);
 
   return (
     <Layout>
@@ -51,9 +60,13 @@ export default function AdminPage() {
           <p className="text-slate-600 dark:text-slate-300">Memuat data...</p>
         ) : error ? (
           <p className="text-red-600 dark:text-red-400">{error}</p>
-        ) : profile?.role?.includes('Admin') ? (
+        ) : profile?.role === 'Admin' ? (
           <>
             <div className="grid gap-6 md:grid-cols-4 mb-10">
+              <div className="rounded-3xl border border-slate-200 bg-slate-900 p-6 shadow-sm dark:bg-slate-800 col-span-full md:col-span-1">
+                <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Estimasi Omzet</p>
+                <p className="mt-4 text-3xl font-semibold text-white">Rp {summary.totalRevenue.toLocaleString()}</p>
+              </div>
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <p className="text-sm uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Total Booking</p>
                 <p className="mt-4 text-3xl font-semibold text-slate-900 dark:text-white">{summary.total}</p>
@@ -105,7 +118,9 @@ export default function AdminPage() {
             </section>
           </>
         ) : (
-          <p className="text-red-600 dark:text-red-400">Anda tidak memiliki akses admin.</p>
+          <div className="rounded-3xl bg-red-50 p-8 text-center dark:bg-red-950/20">
+            <p className="text-red-600 dark:text-red-400 font-medium">Akses Ditolak. Halaman ini hanya untuk Administrator.</p>
+          </div>
         )}
       </main>
     </Layout>

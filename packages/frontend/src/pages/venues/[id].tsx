@@ -1,5 +1,3 @@
-'use client';
-
 import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../../components/Layout';
@@ -27,11 +25,13 @@ export default function VenueDetailPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!router.isReady || !id) return;
+
     const fetchVenue = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/venues?id=${id}`);
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${baseUrl}/venues/${id}`);
         const data = await response.json();
         if (!response.ok) {
           setError(data.message || 'Gagal memuat detail venue.');
@@ -45,7 +45,7 @@ export default function VenueDetailPage() {
       }
     };
     fetchVenue();
-  }, [id]);
+  }, [id, router.isReady]);
 
   const totalPrice = useMemo(() => {
     if (!venue || !startAt || !endAt) return 0;
@@ -54,6 +54,15 @@ export default function VenueDetailPage() {
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
     return days * venue.basePrice;
   }, [venue, startAt, endAt]);
+
+  // Helper function for currency formatting
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
 
   const handleBooking = async () => {
     setBookingMessage('');
@@ -64,20 +73,12 @@ export default function VenueDetailPage() {
       return;
     }
 
-    const token = localStorage.getItem('venue_rental_token');
-    if (!token) {
-      setBookingMessage('Silakan login terlebih dahulu untuk melakukan booking.');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const bookingResponse = await fetch('/api/bookings', {
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
+      const bookingResponse = await fetch(`${baseUrl}/bookings`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           venueId: venue.id,
           startAt,
@@ -93,12 +94,9 @@ export default function VenueDetailPage() {
         return;
       }
 
-      const paymentResponse = await fetch('/api/payments', {
+      const paymentResponse = await fetch(`${baseUrl}/payments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId: bookingData.id,
           amount: totalPrice,
@@ -164,7 +162,7 @@ export default function VenueDetailPage() {
                   <textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={4} className="mt-2 w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
                 </div>
                 <div className="rounded-3xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                  Estimasi total: <span className="font-semibold text-slate-900 dark:text-white">Rp {totalPrice}</span>
+                  Estimasi total: <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(totalPrice)}</span>
                 </div>
                 {bookingMessage ? <p className="text-sm text-red-600 dark:text-red-400">{bookingMessage}</p> : null}
                 {checkoutUrl ? (

@@ -1,5 +1,7 @@
 import Layout from '../components/Layout';
-import Hero from '../components/Hero';
+// Pastikan Hero dan AutoPlaySlider diekspor sebagai 'export default' di filenya masing-masing.
+// Jika mereka diekspor sebagai 'export const ...', maka gunakan kurung kurawal: { Hero }
+import Hero from '../components/Hero'; 
 import AutoPlaySlider from '../components/AutoPlaySlider';
 
 export default function Home() {

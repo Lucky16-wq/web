@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
@@ -21,7 +19,8 @@ export default function VenuesPage() {
   useEffect(() => {
     const fetchVenues = async () => {
       try {
-        const response = await fetch('/api/venues');
+        const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${baseUrl}/venues`);
         const data = await response.json();
         setVenues(data || []);
       } catch (err: any) {

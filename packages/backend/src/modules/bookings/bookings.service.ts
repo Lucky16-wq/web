@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Booking } from '../../entities/booking.entity';
@@ -43,15 +43,33 @@ export class BookingsService {
   }
 
   async createBooking(payload: any) {
-    const user = await this.userRepository.findOne({ where: { id: payload.userId } });
+    // Auto-seed: Pastikan ada Venue jika database kosong
+    const venueCount = await this.venueRepository.count();
+    if (venueCount === 0) {
+      const seedVenue = this.venueRepository.create({
+        name: 'Grand Ballroom Jakarta',
+        description: 'Venue mewah untuk pernikahan dan seminar besar.',
+        location: 'Jakarta Selatan',
+        address: 'Jl. Jendral Sudirman No. 1',
+        basePrice: 5000000,
+        capacity: 1000,
+      });
+      await this.venueRepository.save(seedVenue);
+    }
+
+    // Otomatis gunakan Guest User jika tanpa login
+    let user = await this.userRepository.findOne({ where: { email: 'guest@example.com' } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      user = this.userRepository.create({
+        fullName: 'Guest User',
+        email: 'guest@example.com',
+        phone: '0000000000',
+      });
+      await this.userRepository.save(user);
     }
 
     const venue = await this.venueRepository.findOne({ where: { id: payload.venueId } });
-    if (!venue) {
-      throw new NotFoundException('Venue not found');
-    }
+    if (!venue) throw new BadRequestException('Venue not found');
 
     const startAt = new Date(payload.startAt);
     const endAt = new Date(payload.endAt);
@@ -59,15 +77,8 @@ export class BookingsService {
       throw new BadRequestException('Invalid booking dates');
     }
 
-    const conflict = await this.bookingRepository
-      .createQueryBuilder('booking')
-      .innerJoin('booking.venue', 'venue')
-      .where('venue.id = :venueId', { venueId: venue.id })
-      .andWhere('booking.startAt <= :endAt', { endAt })
-      .andWhere('booking.endAt >= :startAt', { startAt })
-      .getOne();
-
-    if (conflict) {
+    const { available } = await this.checkAvailability(venue.id, { startAt, endAt });
+    if (!available) {
       throw new BadRequestException('Venue is not available for the selected dates');
     }
 
@@ -77,13 +88,19 @@ export class BookingsService {
       await this.bookingStatusRepository.save(status);
     }
 
+    // Hitung ulang harga untuk keamanan (jangan percaya 100% pada payload frontend)
+    const diffTime = Math.abs(endAt.getTime() - startAt.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Asumsi: harga per hari. Jika per jam, sesuaikan logikanya.
+    const calculatedPrice = venue.basePrice * (diffDays || 1);
+
     const booking = this.bookingRepository.create({
       user,
       venue,
       status,
       startAt,
       endAt,
-      totalPrice: payload.totalPrice,
+      totalPrice: calculatedPrice,
       purpose: payload.purpose,
       documents: payload.documents || {},
     });

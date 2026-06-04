@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, Get, Controller } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -27,16 +27,31 @@ import { Notification } from './entities/notification.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { RolesGuard } from './modules/auth/roles.guard';
 
+@Controller()
+export class AppController {
+  @Get()
+  getHealth() {
+    return { status: 'ok', message: 'Venue Rental API is running' };
+  }
+}
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      synchronize: false,
-      migrationsRun: true,
-      logging: false,
-      entities: [
+    ConfigModule.forRoot({ 
+      isGlobal: true,
+      envFilePath: '../../.env', // Memastikan backend membaca .env di root monorepo
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        // Mengarahkan localhost ke 127.0.0.1 untuk menghindari AggregateError di Node.js 18+
+        url: configService.get<string>('DATABASE_URL')?.replace('localhost', '127.0.0.1'),
+        autoLoadEntities: true,
+        synchronize: true, // Ubah ke true agar tabel otomatis dibuat saat dev
+        migrationsRun: true,
+        entities: [
         Role,
         User,
         Venue,
@@ -54,7 +69,8 @@ import { RolesGuard } from './modules/auth/roles.guard';
         AuditLog,
       ],
       migrations: ['dist/migrations/*.js'],
-      ssl: process.env.DATABASE_SSL === 'true',
+      ssl: configService.get<string>('DATABASE_SSL') === 'true' ? { rejectUnauthorized: false } : false,
+    }),
     }),
     AuthModule,
     UsersModule,
@@ -65,6 +81,7 @@ import { RolesGuard } from './modules/auth/roles.guard';
     PdfModule,
     NotificationsModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

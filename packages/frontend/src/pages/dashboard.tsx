@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
 
@@ -27,30 +25,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const summary = useMemo<BookingSummary>(() => {
-    const pending = bookings.filter((booking) => booking.status.code === 'pending').length;
-    const active = bookings.filter((booking) => booking.status.code === 'confirmed' || booking.status.code === 'active').length;
-    const completed = bookings.filter((booking) => booking.status.code === 'completed').length;
+    const pending = bookings.filter((booking) => booking.status?.code === 'pending').length;
+    const active = bookings.filter((booking) => ['confirmed', 'active'].includes(booking.status?.code)).length;
+    const completed = bookings.filter((booking) => booking.status?.code === 'completed').length;
     return { total: bookings.length, pending, active, completed };
   }, [bookings]);
 
   useEffect(() => {
-    const token = localStorage.getItem('venue_rental_token');
-    if (!token) {
-      setError('Silakan login untuk melihat dashboard.');
-      setLoading(false);
-      return;
-    }
-
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
     Promise.all([
-      fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(async (res) => {
-        if (!res.ok) throw new Error('Tidak dapat memuat profil.');
-        return res.json();
-      }),
-      fetch('/api/bookings', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(async (res) => {
+      fetch(`${baseUrl}/auth/me`).then(res => res.ok ? res.json() : { fullName: 'Tamu', email: '-' }),
+      fetch(`${baseUrl}/bookings`).then(async (res) => {
         if (!res.ok) throw new Error('Tidak dapat memuat booking.');
         return res.json();
       }),
@@ -122,11 +107,11 @@ export default function Dashboard() {
                 <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-950">
                   {bookings.map((booking) => (
                     <tr key={booking.id}>
-                      <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-200">{booking.venue.name}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-200">{booking.venue?.name || 'Venue'}</td>
                       <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-200">{new Date(booking.startAt).toLocaleDateString()} – {new Date(booking.endAt).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-200">Rp {Number(booking.totalPrice).toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-200">Rp {Number(booking.totalPrice).toLocaleString('id-ID')}</td>
                       <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white">
-                        {booking.status.label}
+                        {booking.status?.label || booking.status?.code}
                       </td>
                     </tr>
                   ))}
